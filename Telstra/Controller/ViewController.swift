@@ -1,6 +1,7 @@
 
 import UIKit
 import SDWebImage
+import ProgressHUD
 
 
 class ViewController: UIViewController,serviceCalls {
@@ -14,15 +15,23 @@ class ViewController: UIViewController,serviceCalls {
     
     var collectedArray:Array<Any> = []
     var height:CGFloat!
-    var imgArray :Array<Any> = []
+    var rowHeightArray :Array<CGFloat> = []
 
     override func viewDidLoad() {
         super.viewDidLoad()
         height = 100
         webIns.service = self
         self.view.backgroundColor = UIColor.white
-        self.navigationController?.navigationBar.backgroundColor = UIColor.white
+        self.navigationController?.navigationBar.backgroundColor = UIColor.lightGray
+        let button1 = UIBarButtonItem(title: "Refresh", style: .plain, target: self, action: #selector(ViewController.webCallInitiated))
+        self.navigationItem.rightBarButtonItem  = button1
+        self.navigationItem.rightBarButtonItem?.tintColor = UIColor.black
         self.webCallInitiated()
+    }
+    
+    override func viewDidLayoutSubviews() {
+        super.viewDidLayoutSubviews()
+        first.collectionview.collectionViewLayout.invalidateLayout()
     }
     
     func addConstraints() {
@@ -53,22 +62,13 @@ class ViewController: UIViewController,serviceCalls {
         let collectionview_x = NSLayoutConstraint(item: first.collectionview, attribute:.leading, relatedBy: NSLayoutConstraint.Relation.equal, toItem: first, attribute:.leading, multiplier: 1, constant: 0)
         let collectionview_y = NSLayoutConstraint(item: first.collectionview, attribute:.trailing, relatedBy: NSLayoutConstraint.Relation.equal, toItem: first, attribute:.trailing, multiplier: 1, constant: 0)
         let collectionview_width = NSLayoutConstraint(item: first.collectionview, attribute:.width, relatedBy: NSLayoutConstraint.Relation.equal, toItem: first, attribute:.width, multiplier: 1, constant: 0)
-        let collectionview_height = NSLayoutConstraint(item: first.collectionview, attribute:.height, relatedBy: NSLayoutConstraint.Relation.equal, toItem: first, attribute:.height, multiplier: 0.87, constant: 0)
+        let collectionview_height = NSLayoutConstraint(item: first.collectionview, attribute:.height, relatedBy: NSLayoutConstraint.Relation.equal, toItem: first, attribute:.height, multiplier: 1, constant: 0)
         self.view.addConstraints([collectionview_x, collectionview_y, collectionview_width, collectionview_height])
-        
-        
-        first.refressButton.translatesAutoresizingMaskIntoConstraints = false
-        let butt_x = NSLayoutConstraint(item: first.refressButton, attribute:.top, relatedBy: NSLayoutConstraint.Relation.equal, toItem: first.collectionview, attribute:.bottomMargin, multiplier: 1, constant: 0)
-        let butt_y = NSLayoutConstraint(item: first.refressButton, attribute:.left, relatedBy: NSLayoutConstraint.Relation.equal, toItem: first, attribute:.left, multiplier: 1, constant: 0)
-        let butt_width = NSLayoutConstraint(item: first.refressButton, attribute:.width, relatedBy: NSLayoutConstraint.Relation.equal, toItem: first, attribute:.width, multiplier: 1, constant: 0)
-        let butt_height = NSLayoutConstraint(item: first.refressButton, attribute:.height, relatedBy: NSLayoutConstraint.Relation.equal, toItem: first, attribute:.height, multiplier: 0.10, constant: 0)
-        self.view.addConstraints([butt_x, butt_y, butt_width, butt_height])
-        
-        
         
     }
     
     @objc func webCallInitiated(){
+        
          self.presentAlert()
         // Web Call Initiated
         webIns.webCall(webUrl: "https://dl.dropboxusercontent.com/s/2iodh4vg0eortkl/facts.json")
@@ -76,20 +76,33 @@ class ViewController: UIViewController,serviceCalls {
     }
     
     func presentAlert(){
-        // Added Loading Alert
-        let alert = UIAlertController(title: nil, message: "Please wait...", preferredStyle: .alert)
-        alert.view.tintColor = UIColor.black
-        let loadingIndicator: UIActivityIndicatorView = UIActivityIndicatorView(frame: CGRect(x: 0, y: 0, width: self.view.frame.size.width, height: self.view.frame.size.height))
-        loadingIndicator.hidesWhenStopped = true
-        loadingIndicator.style = UIActivityIndicatorView.Style.gray
-        //loadingIndicator.startAnimating();
-        
-        alert.view.addSubview(loadingIndicator)
-        present(alert, animated: true, completion: nil)
+           ProgressHUD.show()
     }
     
     func dismissAlert(){
-        dismiss(animated: false, completion: nil)
+          ProgressHUD.dismiss()
+    }
+    
+    
+    func calculateHeight(array:Array<Any>)-> Array<CGFloat>{
+        var rowHeight:Array<CGFloat> = []
+        for i in 0..<array.count {
+             obj = (collectedArray[i] as? Objects)!
+            if let url = URL(string: obj.image!){
+                if let data = try? Data(contentsOf: url)
+                {
+                    let image: UIImage = UIImage(data: data)!
+                    rowHeight.append(image.size.height)
+                }else{
+                rowHeight.append(150)
+                }
+            }else{
+                rowHeight.append(150)
+            }
+            print(obj.image!,i,rowHeight)
+        }
+        
+        return rowHeight
     }
     
     
@@ -97,14 +110,16 @@ class ViewController: UIViewController,serviceCalls {
     func serviceDict(dict: Dictionary<AnyHashable, Any>) {
         self.title = (dict["title"] as! String)
         collectedArray = parse.parseObj(dict: dict)
+        rowHeightArray = calculateHeight(array: collectedArray)
         self.dismissAlert()
         first.collectionview.dataSource = self
         first.collectionview.delegate = self
         first.collectionview.register(CollectionViewCell.self, forCellWithReuseIdentifier: CollectionViewCell.identifier)
-        first.refressButton.addTarget(self, action: #selector(self.webCallInitiated), for: .touchDown)
         self.view.addSubview(first)
         self.addConstraints()
     }
+    
+    
     
 }
 
@@ -115,15 +130,10 @@ extension ViewController : UICollectionViewDataSource,UICollectionViewDelegate,U
         cell.backgroundColor = UIColor.white
         obj = (collectedArray[indexPath.row] as? Objects)!
         let url = URL(string: obj.image!)
-        // SdwebImage
-        cell.showCaseImage.sd_setImage(with: url, placeholderImage: UIImage(named: ""),options: SDWebImageOptions(rawValue: 0), completed: { image, error, cacheType, imageURL in
-            
-            if let image = image{
-                self.height = (image.size.height)
-            }
-            
-        })
-        cell.showCaseImage.frame.height == self.height
+            // SdwebImage
+            cell.showCaseImage.sd_setImage(with: url, placeholderImage: UIImage(named: ""),options: SDWebImageOptions(rawValue: 0), completed: { image, error, cacheType, imageURL in
+                print(imageURL as Any,image?.size.height as Any)
+            })
         cell.nameLabel.text = obj.name
         cell.descri.text = obj.descrip
         return cell
@@ -136,19 +146,9 @@ extension ViewController : UICollectionViewDataSource,UICollectionViewDelegate,U
     
     func collectionView(_ collectionView: UICollectionView, layout collectionViewLayout: UICollectionViewLayout, sizeForItemAt indexPath: IndexPath) -> CGSize
     {
-        
-         obj = (collectedArray[indexPath.row] as? Objects)!
-        if let url = URL(string: obj.image!){
-            if let data = try? Data(contentsOf: url)
-            {
-                let image: UIImage = UIImage(data: data)!
-                self.height = image.size.height
-            }
-        }
-        
-        return CGSize(width: self.view.frame.width, height: height)
+        return CGSize(width: self.view.frame.width, height:self.rowHeightArray[indexPath.row])
     }
-
+    
 
 }
 

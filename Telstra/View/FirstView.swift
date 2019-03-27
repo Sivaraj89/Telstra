@@ -24,13 +24,6 @@ class FirstView: UIView {
         collectionview.showsVerticalScrollIndicator = false
         self.addSubview(collectionview)
         
-        // Refreh button
-        refressButton = UIButton(type: .roundedRect) as UIButton
-        refressButton.setTitle("Refresh", for: .normal)
-        refressButton.setTitleColor(UIColor.white, for:.normal)
-        refressButton.backgroundColor = UIColor.black
-        self.addSubview(refressButton)
-        
         
     }
     
